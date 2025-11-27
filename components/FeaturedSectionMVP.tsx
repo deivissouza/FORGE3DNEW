@@ -91,9 +91,18 @@ export const FeaturedSectionMVP: React.FC<FeaturedSectionMVPProps> = ({ onSelect
                                             href={item.link}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center"
+                                            title="📥 COMO BAIXAR: 1) Clique aqui para abrir o modelo. 2) No site, procure o botão 'Download' ou 'Download files'. 3) Baixe o arquivo .STL. 4) Volte aqui e faça upload do arquivo baixado!"
+                                            className="group/link relative px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center"
                                         >
                                             <ExternalLink size={18} />
+                                            <span className="absolute bottom-full mb-2 hidden group-hover/link:block w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 -left-28">
+                                                <strong className="block mb-1">📥 Como Baixar:</strong>
+                                                1. Clique aqui para abrir o modelo<br />
+                                                2. Procure o botão "Download"<br />
+                                                3. Baixe o arquivo .STL<br />
+                                                4. Volte e faça upload!
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                            </span>
                                         </a>
                                     </div>
                                 </div>
