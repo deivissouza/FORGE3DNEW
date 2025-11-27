@@ -5,6 +5,8 @@ import { COLORS, BASE_STARTUP_FEE } from '../constants';
 import { PricingBreakdown, PrintSettings } from '../types';
 import { CheckoutModal } from './CheckoutModal';
 import { useStore } from '../src/context/StoreContext';
+import { useAdmin } from '../src/context/AdminContext';
+import { calculateQuote } from '../src/lib/calculator';
 
 interface OrderFormProps {
   initialLink?: string;
@@ -12,6 +14,7 @@ interface OrderFormProps {
 
 export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
   const { materials } = useStore();
+  const { settings: adminSettings } = useAdmin();
   const [activeTab, setActiveTab] = useState<'upload' | 'link'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -77,26 +80,34 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
   };
 
   const simulateCalculation = () => {
+    if (!adminSettings) return;
+
     setIsCalculating(true);
     setPricing(null);
 
     setTimeout(() => {
-      const selectedMaterial = materials.find(m => m.id === settings.material);
-      const pricePerGram = selectedMaterial?.pricePerGram || 0.15;
-
       const baseWeight = file ? (file.size / 1024 / 10) : 50;
       const estimatedWeight = Math.floor(baseWeight * (settings.scale / 100) * (settings.infill / 20));
 
-      const materialCost = estimatedWeight * pricePerGram;
-      const timeCost = (estimatedWeight * 0.5);
+      const quote = calculateQuote(
+        estimatedWeight,
+        settings.material as 'PLA' | 'PETG',
+        {
+          plaPricePerGram: adminSettings.plaPricePerGram,
+          petgPricePerGram: adminSettings.petgPricePerGram,
+          profitMargin: adminSettings.profitMargin,
+          machineCostPerHour: adminSettings.machineCostPerHour,
+          minimumOrder: adminSettings.minimumOrder,
+        }
+      );
 
       setPricing({
-        volumeCost: materialCost,
-        timeCost: timeCost,
-        startupFee: BASE_STARTUP_FEE,
-        total: materialCost + timeCost + BASE_STARTUP_FEE,
+        volumeCost: quote.materialCost,
+        timeCost: quote.timeCost,
+        startupFee: quote.profitMargin,
+        total: quote.total,
         weight: estimatedWeight,
-        printTime: `${Math.floor(estimatedWeight / 10)}h ${Math.floor(Math.random() * 60)} m`
+        printTime: `${Math.floor(quote.estimatedHours)}h ${Math.floor((quote.estimatedHours % 1) * 60)} m`
       });
       setIsCalculating(false);
     }, 1500);
