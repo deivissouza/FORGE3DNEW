@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect, Suspense } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
-import { Stage, OrbitControls, Grid, ContactShadows, Center, Html } from '@react-three/drei';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { OrbitControls, Grid, ContactShadows, Html, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { STLLoader } from 'three-stdlib';
+import { OBJLoader } from 'three-stdlib';
 import { AlertTriangle } from 'lucide-react';
 
 interface ThreePreviewProps {
@@ -13,6 +14,32 @@ interface ThreePreviewProps {
   onDimensionsLoaded?: (dims: { x: number, y: number, z: number }, valid: boolean) => void;
 }
 
+const CameraAdjuster = ({ geometry }: { geometry: THREE.BufferGeometry }) => {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (geometry) {
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+
+      if (geometry.boundingSphere) {
+        const center = geometry.boundingSphere.center;
+        const radius = geometry.boundingSphere.radius;
+
+        // Ajusta a câmera para enquadrar perfeitamente o modelo
+        const distance = radius / Math.tan((camera as THREE.PerspectiveCamera).fov * Math.PI / 360);
+        const cameraZ = distance * 1.5; // Adiciona margem
+
+        camera.position.set(cameraZ * 0.5, cameraZ * 0.5, cameraZ);
+        camera.lookAt(center.x, center.y, center.z);
+        camera.updateProjectionMatrix();
+      }
+    }
+  }, [geometry, camera]);
+
+  return null;
+};
+
 const Model = ({ url, color, isWireframe, maxPrintSize = 250, onDimensionsLoaded }: {
   url: string,
   color: string,
@@ -20,39 +47,84 @@ const Model = ({ url, color, isWireframe, maxPrintSize = 250, onDimensionsLoaded
   maxPrintSize?: number,
   onDimensionsLoaded?: (dims: { x: number, y: number, z: number }, valid: boolean) => void
 }) => {
-  const geom = useLoader(STLLoader, url);
   const meshRef = useRef<THREE.Mesh>(null);
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+
+  // Detecta o tipo de arquivo pela extensão
+  const fileExtension = url.split('.').pop()?.toLowerCase();
 
   useEffect(() => {
-    if (geom) {
-      geom.center();
-      geom.computeVertexNormals();
-      geom.computeBoundingBox();
+    const loadModel = async () => {
+      try {
+        let loadedGeometry: THREE.BufferGeometry;
 
-      if (geom.boundingBox) {
-        const size = new THREE.Vector3();
-        geom.boundingBox.getSize(size);
+        if (fileExtension === 'stl') {
+          const loader = new STLLoader();
+          loadedGeometry = await new Promise((resolve, reject) => {
+            loader.load(url, resolve, undefined, reject);
+          });
+        } else if (fileExtension === 'obj') {
+          const loader = new OBJLoader();
+          const object = await new Promise<THREE.Group>((resolve, reject) => {
+            loader.load(url, resolve, undefined, reject);
+          });
 
-        // Convert to mm (assuming STL is in mm, which is standard)
-        // If unit is different, we might need scaling, but standard is mm.
-        const isValid = size.x <= maxPrintSize && size.y <= maxPrintSize && size.z <= maxPrintSize;
-
-        if (onDimensionsLoaded) {
-          onDimensionsLoaded({ x: size.x, y: size.y, z: size.z }, isValid);
+          // Extrai a geometria do OBJ
+          loadedGeometry = new THREE.BufferGeometry();
+          object.traverse((child) => {
+            if (child instanceof THREE.Mesh && child.geometry) {
+              loadedGeometry = child.geometry;
+            }
+          });
+        } else {
+          // Fallback para STL se não reconhecer
+          const loader = new STLLoader();
+          loadedGeometry = await new Promise((resolve, reject) => {
+            loader.load(url, resolve, undefined, reject);
+          });
         }
+
+        // Centraliza e calcula normais
+        loadedGeometry.center();
+        loadedGeometry.computeVertexNormals();
+        loadedGeometry.computeBoundingBox();
+
+        if (loadedGeometry.boundingBox) {
+          const size = new THREE.Vector3();
+          loadedGeometry.boundingBox.getSize(size);
+
+          const isValid = size.x <= maxPrintSize && size.y <= maxPrintSize && size.z <= maxPrintSize;
+
+          if (onDimensionsLoaded) {
+            onDimensionsLoaded({ x: size.x, y: size.y, z: size.z }, isValid);
+          }
+        }
+
+        setGeometry(loadedGeometry);
+      } catch (error) {
+        console.error('Error loading model:', error);
       }
-    }
-  }, [geom, maxPrintSize, onDimensionsLoaded]);
+    };
+
+    loadModel();
+  }, [url, fileExtension, maxPrintSize, onDimensionsLoaded]);
+
+  if (!geometry) {
+    return <Html center><div className="text-sm font-bold text-gray-500">Carregando modelo...</div></Html>;
+  }
 
   return (
-    <mesh ref={meshRef} geometry={geom} castShadow receiveShadow>
-      <meshStandardMaterial
-        color={color}
-        roughness={0.5}
-        metalness={0.2}
-        wireframe={isWireframe}
-      />
-    </mesh>
+    <>
+      <CameraAdjuster geometry={geometry} />
+      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          color={color}
+          roughness={0.5}
+          metalness={0.2}
+          wireframe={isWireframe}
+        />
+      </mesh>
+    </>
   );
 };
 
@@ -124,32 +196,35 @@ export const ThreePreview: React.FC<ThreePreviewProps> = ({
         </div>
       )}
 
-      <Canvas shadows dpr={[1, 2]} camera={{ fov: 50, position: [0, 0, 5] }}>
+      <Canvas shadows dpr={[1, 2]}>
+        <PerspectiveCamera makeDefault fov={50} position={[3, 3, 5]} />
         <Suspense fallback={<Html center><div className="text-sm font-bold text-gray-500">Carregando 3D...</div></Html>}>
-          <Stage environment="city" intensity={0.5} adjustCamera={1.2}>
-            {fileUrl ? (
-              <Model
-                url={fileUrl}
-                color={color}
-                isWireframe={isWireframe}
-                maxPrintSize={maxPrintSize}
-                onDimensionsLoaded={handleDimensions}
-              />
-            ) : (
-              <DemoMesh color={color} isWireframe={isWireframe} />
-            )}
-          </Stage>
+          <ambientLight intensity={0.5} />
+          <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={0.8} castShadow />
+          <spotLight position={[-10, -10, -10]} angle={0.15} penumbra={1} intensity={0.3} />
+
+          {fileUrl ? (
+            <Model
+              url={fileUrl}
+              color={color}
+              isWireframe={isWireframe}
+              maxPrintSize={maxPrintSize}
+              onDimensionsLoaded={handleDimensions}
+            />
+          ) : (
+            <DemoMesh color={color} isWireframe={isWireframe} />
+          )}
         </Suspense>
         <Grid
           renderOrder={-1}
-          position={[0, -0.85, 0]}
+          position={[0, -2, 0]}
           infiniteGrid
           cellSize={0.5}
           sectionSize={2.5}
           sectionColor={new THREE.Color(0.8, 0.8, 0.8)}
           fadeDistance={25}
         />
-        <ContactShadows opacity={0.5} scale={10} blur={2} far={4} resolution={256} color="#000000" />
+        <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} resolution={256} color="#000000" />
         <OrbitControls makeDefault autoRotate={!fileUrl} autoRotateSpeed={0.5} />
       </Canvas>
     </div>
