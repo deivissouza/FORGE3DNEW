@@ -22,6 +22,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [pricing, setPricing] = useState<PricingBreakdown | null>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isSizeValid, setIsSizeValid] = useState(true);
 
   const [settings, setSettings] = useState<PrintSettings>({
     material: 'PLA',
@@ -125,7 +126,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
 
         {/* Left Column: Visuals */}
         <div className="space-y-6 lg:sticky lg:top-24">
-          <ThreePreview color={settings.color} fileUrl={activeTab === 'upload' ? fileUrl : null} />
+          <ThreePreview
+            color={settings.color}
+            fileUrl={activeTab === 'upload' ? fileUrl : null}
+            maxPrintSize={adminSettings?.maxPrintSize}
+            onDimensionsLoaded={(_, valid) => setIsSizeValid(valid)}
+          />
 
           {pricing && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 animate-fade-in">
@@ -154,10 +160,28 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
 
               <button
                 onClick={() => setIsCheckoutOpen(true)}
-                className="w-full mt-6 bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-500/30 hover:bg-green-700 hover:shadow-green-600/40 transition-all transform active:scale-[0.98] text-lg flex items-center justify-center gap-2"
+                disabled={!pricing || isCalculating || !isSizeValid}
+                className={`w-full mt-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${!pricing || isCalculating || !isSizeValid
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30 hover:-translate-y-1'
+                  }`}
               >
-                <CheckCircle2 size={24} />
-                Quero Imprimir
+                {isCalculating ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    Calculando...
+                  </>
+                ) : !isSizeValid ? (
+                  <>
+                    <AlertCircle />
+                    Modelo Muito Grande
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={24} />
+                    Quero Imprimir
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -168,14 +192,14 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
           <div className="flex border-b border-gray-100">
             <button
               onClick={() => setActiveTab('upload')}
-              className={`flex - 1 py - 4 text - sm font - bold flex items - center justify - center gap - 2 transition - colors ${activeTab === 'upload' ? 'bg-white text-primary border-b-2 border-primary' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'} `}
+              className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'upload' ? 'bg-white text-primary border-b-2 border-primary' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <Upload size={18} />
               Upload Arquivo
             </button>
             <button
               onClick={() => setActiveTab('link')}
-              className={`flex - 1 py - 4 text - sm font - bold flex items - center justify - center gap - 2 transition - colors ${activeTab === 'link' ? 'bg-white text-primary border-b-2 border-primary' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'} `}
+              className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'link' ? 'bg-white text-primary border-b-2 border-primary' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <LinkIcon size={18} />
               Link Externo
@@ -223,19 +247,19 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-start gap-3">
                       <div className="w-16 h-16 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
                         <img src={`https://picsum.photos/seed/${link.length}/200`} alt="Preview" className="w-full h-full object-cover" />
-                      </div >
+                      </div>
                       <div>
                         <h4 className="font-bold text-gray-900">{parseLinkMetadata(link)}</h4>
                         <p className="text-xs text-gray-500 mt-1">Detectado via Link</p>
                       </div>
-                    </div >
+                    </div>
                   )}
-                </div >
+                </div>
               )}
-            </div >
+            </div>
 
             {/* Material & Color */}
-            < div className="space-y-4" >
+            <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 1. Material e Cor
               </h3>
@@ -269,15 +293,13 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
                   </button>
                 ))}
               </div>
-            </div >
+            </div>
 
             {/* Print Settings */}
-            < div className="space-y-6" >
+            <div className="space-y-6">
               <h3 className="text-lg font-bold text-gray-900">2. Configurações de Impressão</h3>
 
               <div className="grid grid-cols-1 gap-6">
-
-
                 <div className="space-y-2">
                   <label className="flex justify-between text-sm font-medium text-gray-700">
                     Escala
@@ -294,7 +316,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
                   />
                 </div>
               </div>
-            </div >
+            </div>
 
             {isCalculating && (
               <div className="flex items-center justify-center gap-2 text-primary py-4 bg-blue-50 rounded-lg animate-pulse">
@@ -308,9 +330,9 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
               <p>O preço final pode sofrer pequenos ajustes após análise técnica manual da malha do arquivo.</p>
             </div>
 
-          </div >
-        </div >
-      </div >
+          </div>
+        </div>
+      </div>
 
       {pricing && (
         <CheckoutModal
@@ -320,6 +342,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialLink }) => {
           settings={settings}
         />
       )}
-    </div >
+    </div>
   );
 };
