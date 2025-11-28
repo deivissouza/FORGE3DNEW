@@ -147,83 +147,87 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const fetchData = async () => {
         setIsLoading(true);
-        await fetchSettings();
 
-        if (isSupabaseConfigured) {
-            try {
-                // Fetch colors
-                const { data: colorsData } = await supabase!
-                    .from('colors')
-                    .select('*')
-                    .order('material', { ascending: true });
+        try {
+            await fetchSettings();
 
-                if (colorsData) {
-                    setColors(colorsData.map(c => ({
-                        id: c.id,
-                        name: c.name,
-                        hex: c.hex,
-                        material: c.material as 'PLA' | 'PETG',
-                        isActive: c.is_active,
-                    })));
-                }
+            if (isSupabaseConfigured) {
+                try {
+                    // Fetch colors
+                    const { data: colorsData } = await supabase!
+                        .from('colors')
+                        .select('*')
+                        .order('material', { ascending: true });
 
-                // Fetch featured items
-                const { data: itemsData } = await supabase!
-                    .from('featured_items')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (itemsData) {
-                    setFeaturedItems(itemsData.map(i => ({
-                        id: i.id,
-                        name: i.name,
-                        link: i.link,
-                        imageUrl: i.image_url,
-                        category: i.category,
-                        tag: i.tag,
-                        description: i.description,
-                        weightEstimate: Number(i.weight_estimate),
-                        isActive: i.is_active,
-                        displayOrder: i.display_order
-                    })));
-                }
-
-                // Fetch Portfolio Items
-                const { data: portfolioData } = await supabase!.from('portfolio_items').select('*').order('created_at', { ascending: false });
-                if (portfolioData) {
-                    setPortfolioItems(portfolioData.map(i => ({
-                        id: i.id,
-                        title: i.title,
-                        description: i.description,
-                        imageUrl: i.image_url,
-                        category: i.category,
-                        isActive: i.is_active
-                    })));
-                }
-
-                // Fetch Content Sections
-                const { data: contentData } = await supabase!.from('content_sections').select('*');
-                if (contentData) {
-                    const sections: Record<string, ContentSection> = {};
-                    contentData.forEach(c => {
-                        sections[c.id] = {
+                    if (colorsData) {
+                        setColors(colorsData.map(c => ({
                             id: c.id,
-                            title: c.title,
-                            subtitle: c.subtitle,
-                            content: c.content,
-                            imageUrl: c.image_url,
-                            buttonText: c.button_text,
-                            buttonLink: c.button_link
-                        };
-                    });
-                    setContentSections(sections);
-                }
+                            name: c.name,
+                            hex: c.hex,
+                            material: c.material as 'PLA' | 'PETG',
+                            isActive: c.is_active,
+                        })));
+                    }
 
-            } catch (err) {
-                console.error('Error fetching data:', err);
+                    // Fetch featured items
+                    const { data: itemsData } = await supabase!
+                        .from('featured_items')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (itemsData) {
+                        setFeaturedItems(itemsData.map(i => ({
+                            id: i.id,
+                            name: i.name,
+                            link: i.link,
+                            imageUrl: i.image_url,
+                            category: i.category,
+                            tag: i.tag,
+                            description: i.description,
+                            weightEstimate: Number(i.weight_estimate),
+                            isActive: i.is_active,
+                            displayOrder: i.display_order
+                        })));
+                    }
+
+                    // Fetch Portfolio Items
+                    const { data: portfolioData } = await supabase!.from('portfolio_items').select('*').order('created_at', { ascending: false });
+                    if (portfolioData) {
+                        setPortfolioItems(portfolioData.map(i => ({
+                            id: i.id,
+                            title: i.title,
+                            description: i.description,
+                            imageUrl: i.image_url,
+                            category: i.category,
+                            isActive: i.is_active
+                        })));
+                    }
+
+                    // Fetch Content Sections
+                    const { data: contentData } = await supabase!.from('content_sections').select('*');
+                    if (contentData) {
+                        const sections: Record<string, ContentSection> = {};
+                        contentData.forEach(c => {
+                            sections[c.id] = {
+                                id: c.id,
+                                title: c.title,
+                                subtitle: c.subtitle,
+                                content: c.content,
+                                imageUrl: c.image_url,
+                                buttonText: c.button_text,
+                                buttonLink: c.button_link
+                            };
+                        });
+                        setContentSections(sections);
+                    }
+
+                } catch (err) {
+                    console.error('Error fetching data:', err);
+                }
             }
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     useEffect(() => {
