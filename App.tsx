@@ -24,11 +24,28 @@ export default function App() {
   }, []);
 
   if (currentPath === '#admin') {
-    return (
-      <AdminProvider>
-        <AdminPanelMVP />
-      </AdminProvider>
-    );
+    try {
+      return (
+        <AdminProvider>
+          <div className="min-h-screen bg-gray-50">
+            <AdminPanelMVP />
+          </div>
+        </AdminProvider>
+      );
+    } catch (error) {
+      console.error('Admin render error:', error);
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center p-8">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Erro ao carregar Admin Panel</h1>
+            <p className="text-gray-600 mb-4">Por favor, recarregue a página.</p>
+            <pre className="text-xs text-left bg-gray-100 p-4 rounded overflow-auto max-w-2xl">
+              {error instanceof Error ? error.message : String(error)}
+            </pre>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
